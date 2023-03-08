@@ -3,9 +3,9 @@ package websockets
 import (
 	"context"
 	"encoding/json"
-	"go-chat/pkg/structures"
 	"log"
 
+	"github.com/hyphengolang/websockets/pkg/structures"
 	"github.com/redis/go-redis/v9"
 )
 
