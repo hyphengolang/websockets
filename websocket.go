@@ -35,6 +35,19 @@ func (p *Payload) UnmarshalBinary(b []byte) error {
 func read(conn *connHandler, c *Client) {
 	defer conn.Close()
 
+	// if handler exists for connect, call it
+	{
+		p := Payload{Method: "connect"}
+		if h, match := c.match(p.Method); match {
+			h.Serve(&response{conn, c.ps}, &p)
+		}
+	}
+
+	// TODO -- if handler exists for disconnect, call it
+	{
+
+	}
+
 	for {
 		s, err := wsutil.ReadClientText(conn.rwc)
 		if err != nil {
@@ -55,33 +68,8 @@ func read(conn *connHandler, c *Client) {
 			return
 		}
 
-		h.Serve(&response{conn.channel, c.ps}, &p)
+		h.Serve(&response{conn, c.ps}, &p)
 	}
-}
-
-type Request struct {
-	Data []byte
-}
-
-type ResponseWriter interface {
-	Publish(method string, p []byte) error
-}
-
-type response struct {
-	channel string
-	ps      Publisher
-}
-
-func (r *response) Publish(method string, p []byte) error {
-	var msg = &Message{
-		Channel: r.channel,
-		Payload: Payload{
-			Method: method,
-			Data:   json.RawMessage(p),
-		},
-	}
-
-	return r.ps.Publish(msg)
 }
 
 // close, write
