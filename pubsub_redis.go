@@ -29,7 +29,7 @@ type predis struct {
 // Publish implements PSubcriber
 func (s *predis) Publish(msg *Message) error {
 	ctx := context.Background()
-	return s.r.Publish(ctx, msg.Channel, msg.Payload).Err()
+	return s.r.Publish(ctx, msg.Channel, msg.Data).Err()
 }
 
 // Subscribe implements PSubcriber
@@ -76,7 +76,7 @@ func (s *predis) listen() {
 				// unsubscribe from the channel
 			}
 		case msg := <-s.sub.Channel():
-			var p Payload
+			var p Data
 			if err := json.Unmarshal([]byte(msg.Payload), &p); err != nil {
 				// if error, then connection is lost
 				log.Printf("error unmarshaling payload: %v", err)
@@ -88,7 +88,7 @@ func (s *predis) listen() {
 					select {
 					case conn.rcv <- &Message{
 						Channel: msg.Channel,
-						Payload: p,
+						Data:    p,
 					}:
 					default:
 						conns.Remove(conn)

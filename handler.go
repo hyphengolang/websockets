@@ -1,14 +1,17 @@
 package websockets
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type Handler interface {
-	Serve(w ResponseWriter, p *Payload)
+	Serve(w ResponseWriter, p *Message)
 }
 
-type HandlerFunc func(w ResponseWriter, p *Payload)
+type HandlerFunc func(w ResponseWriter, p *Message)
 
-func (hf HandlerFunc) Serve(w ResponseWriter, p *Payload) {
+func (hf HandlerFunc) Serve(w ResponseWriter, p *Message) {
 	hf(w, p)
 }
 
@@ -28,9 +31,9 @@ type response struct {
 func (r *response) Send(method string, p []byte) {
 	msg := &Message{
 		Channel: r.rwc.channel,
-		Payload: Payload{
-			Method: method,
-			Data:   json.RawMessage(p),
+		Data: Data{
+			Method:  method,
+			Payload: json.RawMessage(p),
 		},
 	}
 
@@ -40,9 +43,9 @@ func (r *response) Send(method string, p []byte) {
 func (r *response) Broadcast(method string, p []byte) error {
 	var msg = &Message{
 		Channel: r.rwc.channel,
-		Payload: Payload{
-			Method: method,
-			Data:   json.RawMessage(p),
+		Data: Data{
+			Method:  method,
+			Payload: json.RawMessage(p),
 		},
 	}
 
@@ -54,7 +57,10 @@ func (c *Client) On(method string, hf HandlerFunc) {
 		panic("websocket: client mux is nil")
 	}
 
-	e := muxEntry{method, HandlerFunc(hf)}
+	// NOTE -- vunerable to timing attacks
+	method = strings.ToLower(method)
+
+	e := muxEntry{method, hf}
 
 	if _, ok := c.m[method]; ok {
 		panic("websocket: client mux entry already exists")
@@ -67,6 +73,9 @@ func (c *Client) match(method string) (Handler, bool) {
 	if c.m == nil {
 		panic("websocket: client mux is nil")
 	}
+
+	// NOTE -- vunerable to timing attacks
+	method = strings.ToLower(method)
 
 	e, ok := c.m[method]
 	if !ok {

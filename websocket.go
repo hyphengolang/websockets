@@ -14,21 +14,21 @@ import (
 )
 
 type Message struct {
-	Channel string  `json:"channel"`
-	Payload Payload `json:"payload"` //string
+	Channel string `json:"channel"`
+	Data    Data   `json:"data"`
 }
 
-// Payload is the data sent to the client
-type Payload struct {
-	Method string          `json:"method"`
-	Data   json.RawMessage `json:"data,omitempty"`
+// Data is the data sent to the client
+type Data struct {
+	Method  string          `json:"method"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-func (p Payload) MarshalBinary() ([]byte, error) {
+func (p Data) MarshalBinary() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-func (p *Payload) UnmarshalBinary(b []byte) error {
+func (p *Data) UnmarshalBinary(b []byte) error {
 	return json.Unmarshal(b, p)
 }
 
@@ -37,9 +37,13 @@ func read(conn *connHandler, c *Client) {
 
 	// if handler exists for connect, call it
 	{
-		p := Payload{Method: "connect"}
-		if h, match := c.match(p.Method); match {
-			h.Serve(&response{conn, c.ps}, &p)
+		msg := &Message{
+			Channel: conn.channel,
+			Data:    Data{Method: "connect"},
+		}
+
+		if h, match := c.match(msg.Data.Method); match {
+			h.Serve(&response{conn, c.ps}, msg)
 		}
 	}
 
@@ -56,7 +60,7 @@ func read(conn *connHandler, c *Client) {
 		}
 
 		// FIXME if message isn't JSON, log and continue
-		var p Payload
+		var p Data
 		if err := json.Unmarshal(s, &p); err != nil {
 			log.Printf("json err: %v", err)
 			return
@@ -68,7 +72,12 @@ func read(conn *connHandler, c *Client) {
 			return
 		}
 
-		h.Serve(&response{conn, c.ps}, &p)
+		msg := &Message{
+			Channel: conn.channel,
+			Data:    p,
+		}
+
+		h.Serve(&response{conn, c.ps}, msg)
 	}
 }
 
@@ -77,7 +86,7 @@ func write(conn *connHandler) {
 	defer conn.Close()
 
 	for msg := range conn.rcv {
-		p, err := json.Marshal(msg.Payload)
+		p, err := json.Marshal(msg.Data)
 		if err != nil {
 			log.Printf("json err: %v", err)
 			return
